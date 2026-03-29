@@ -1,0 +1,10 @@
+# Cloudflare Pages builds automatically from GitHub — no Cloud Build needed.
+# This file is a placeholder and reminder of that fact.
+# In Cloudflare Pages dashboard:
+#   Framework preset: Vite
+#   Build command:    npm run build
+#   Output dir:       dist
+#   Root dir:         frontend
+#   Env vars:
+#     VITE_FSU_API_KEY      = (your fsu1x_ consumer key)
+#     VITE_API_BASE_URL     = (your Cloud Run URL)
