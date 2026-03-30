@@ -29,6 +29,10 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         # Strip trailing slash for matching
         clean_path = path.rstrip("/") or "/"
 
+        # Let CORS preflight pass through untouched
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         # Exempt paths pass straight through
         if clean_path in EXEMPT_PATHS or clean_path.startswith("/v1/keys"):
             return await call_next(request)
