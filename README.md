@@ -10,9 +10,18 @@ secured REST API with its own key management layer.
 
 ```
 GitHub (main branch)
-  ├── backend/   → Cloud Run (europe-west2, chimera-v4)
+  ├── backend/   → Cloud Run (europe-west2, beta-fsu1x)
   └── frontend/  → Cloudflare Pages (auto-deploy)
 ```
+
+## Live URLs
+
+| Service | URL |
+|---------|-----|
+| Backend (Cloud Run) | `https://beta-fsu1x-950990732577.europe-west2.run.app` |
+| Frontend (Cloudflare Pages) | `https://fsu-1x.pages.dev` |
+| Swagger UI | `https://beta-fsu1x-950990732577.europe-west2.run.app/docs` |
+| Health check | `https://beta-fsu1x-950990732577.europe-west2.run.app/health` |
 
 ## Endpoints
 
@@ -28,61 +37,39 @@ GitHub (main branch)
 | GET | `/v1/keys` | X-Admin-Key | List all keys |
 | DELETE | `/v1/keys/{key_id}` | X-Admin-Key | Revoke a key |
 
-Swagger UI: `https://your-cloud-run-url/docs`
+---
+
+## CI/CD Pipeline
+
+```
+VSCode → commit & push to GitHub (main)
+  ├── Cloud Build trigger → builds backend → deploys to Cloud Run
+  └── Cloudflare Pages trigger → builds frontend → deploys globally
+```
+
+Push to `main` is all that's needed. Both services update automatically.
 
 ---
 
-## First-time GCP Setup
+## Cloud Run Setup (backend)
 
-Run these once from your terminal (gcloud CLI required):
+### Environment Variables (set in Cloud Run console)
 
-```bash
-# 1. Store secrets in Secret Manager
-gcloud secrets create fsu1x-odds-api-key \
-  --replication-policy=automatic \
-  --project=chimera-v4
-echo -n "8d96d1f0daa60bcd931806eb52232cbc" | \
-  gcloud secrets versions add fsu1x-odds-api-key --data-file=- --project=chimera-v4
+| Variable | Value |
+|----------|-------|
+| `ODDS_API_KEY` | Your Odds API key from the-odds-api.com |
+| `ADMIN_KEY` | Generate: `python3 -c "import secrets; print('admin_' + secrets.token_urlsafe(32))"` |
+| `GCP_PROJECT` | `chimera-v4` |
+| `ALLOWED_ORIGINS` | `["https://fsu-1x.pages.dev"]` |
 
-# 2. Generate and store admin key
-python3 -c "import secrets; print('admin_' + secrets.token_urlsafe(32))"
-# → copy the output, then:
-echo -n "admin_YOUR_GENERATED_KEY" | \
-  gcloud secrets versions add fsu1x-admin-key --data-file=- --project=chimera-v4
-
-# 3. Grant Cloud Run SA access to secrets
-gcloud projects add-iam-policy-binding chimera-v4 \
-  --member="serviceAccount:$(gcloud iam service-accounts list \
-    --filter='displayName:Default compute service account' \
-    --format='value(email)' --project=chimera-v4)" \
-  --role="roles/secretmanager.secretAccessor"
-
-# 4. Create Firestore composite indexes (for key auth queries)
-gcloud firestore indexes composite create \
-  --collection-group=fsu_1x_api_keys \
-  --field-config=field-path=key,order=ASCENDING \
-  --field-config=field-path=is_active,order=ASCENDING \
-  --project=chimera-v4
-```
-
----
-
-## Cloud Run Deploy (backend)
-
-Cloud Build triggers on push to `main`. To trigger manually:
-
-```bash
-cd backend
-gcloud builds submit \
-  --config=cloudbuild.yaml \
-  --project=chimera-v4
-```
+### Build type
+Uses **Google Cloud Buildpacks** (no Dockerfile needed).
+- Build context directory: `backend`
+- Entry point: leave blank (uses `Procfile`)
 
 ---
 
 ## Cloudflare Pages Setup (frontend)
-
-In Cloudflare Pages dashboard → Connect to Git → `charles-ascot/beta-fsu1x`:
 
 | Setting | Value |
 |---------|-------|
@@ -91,27 +78,58 @@ In Cloudflare Pages dashboard → Connect to Git → `charles-ascot/beta-fsu1x`:
 | Output directory | `dist` |
 | Root directory | `frontend` |
 
-Environment variables (Production):
+### Environment Variables (Production)
 
 | Variable | Value |
 |----------|-------|
-| `VITE_API_BASE_URL` | Your Cloud Run URL |
-| `VITE_FSU_API_KEY` | A `fsu1x_` consumer key (generate via Key Manager) |
+| `VITE_API_BASE_URL` | `https://beta-fsu1x-950990732577.europe-west2.run.app` |
+| `VITE_FSU_API_KEY` | A `fsu1x_` consumer key — generate via Key Manager below |
+
+After changing env vars, trigger a manual redeploy in Cloudflare Pages dashboard.
 
 ---
 
-## First Consumer Key
+## Generating a Consumer Key
 
-After backend is deployed, create your first consumer key via curl:
+After backend is deployed:
 
 ```bash
-curl -X POST https://your-cloud-run-url/v1/keys \
-  -H "X-Admin-Key: your-admin-key" \
+# Create a key
+curl -X POST https://beta-fsu1x-950990732577.europe-west2.run.app/v1/keys \
+  -H "X-Admin-Key: YOUR_ADMIN_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"name": "mark-dashboard"}'
+  -d '{"name": "cloudflare-frontend"}'
+
+# List all keys
+curl https://beta-fsu1x-950990732577.europe-west2.run.app/v1/keys \
+  -H "X-Admin-Key: YOUR_ADMIN_KEY"
 ```
 
-Copy the returned `key` value — use it as `VITE_FSU_API_KEY` in Cloudflare.
+Copy the `fsu1x_` value and set it as `VITE_FSU_API_KEY` in Cloudflare Pages.
+
+---
+
+## Local Development
+
+### Backend
+
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env   # fill in ODDS_API_KEY and ADMIN_KEY
+uvicorn main:app --reload --port 8000
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+cp .env.example .env   # set VITE_API_BASE_URL=http://localhost:8000
+npm run dev
+```
 
 ---
 
