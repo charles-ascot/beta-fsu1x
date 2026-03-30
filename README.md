@@ -2,7 +2,7 @@
 
 Fractional Service Unit wrapping [The Odds API v4](https://the-odds-api.com).
 Provides normalised odds data across 70+ sports and 40+ bookmakers via a
-secured REST API with its own key management layer.
+secured REST API with its own key management layer. Production domain: `fsu1x.thync.online`.
 
 ---
 
