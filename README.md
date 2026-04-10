@@ -2,7 +2,7 @@
 
 Fractional Service Unit wrapping [The Odds API v4](https://the-odds-api.com).
 Provides normalised odds data across 70+ sports and 40+ bookmakers via a
-secured REST API with its own key management layer. Production domain: `fsu1x.thync.online`.
+secured REST API with its own key management layer.
 
 ---
 
@@ -18,8 +18,8 @@ GitHub (main branch)
 
 | Service | URL |
 |---------|-----|
+| Frontend | `https://fsu1x.thync.online` |
 | Backend (Cloud Run) | `https://beta-fsu1x-950990732577.europe-west2.run.app` |
-| Frontend (Cloudflare Pages) | `https://fsu-1x.pages.dev` |
 | Swagger UI | `https://beta-fsu1x-950990732577.europe-west2.run.app/docs` |
 | Health check | `https://beta-fsu1x-950990732577.europe-west2.run.app/health` |
 
@@ -60,12 +60,16 @@ Push to `main` is all that's needed. Both services update automatically.
 | `ODDS_API_KEY` | Your Odds API key from the-odds-api.com |
 | `ADMIN_KEY` | Generate: `python3 -c "import secrets; print('admin_' + secrets.token_urlsafe(32))"` |
 | `GCP_PROJECT` | `chimera-v4` |
-| `ALLOWED_ORIGINS` | `["https://fsu-1x.pages.dev"]` |
+| `ALLOWED_ORIGINS` | `["https://fsu1x.thync.online","https://fsu-1x.pages.dev"]` |
 
 ### Build type
 Uses **Google Cloud Buildpacks** (no Dockerfile needed).
 - Build context directory: `backend`
 - Entry point: leave blank (uses `Procfile`)
+
+### Notes
+- OPTIONS preflight requests are exempted from API key auth so CORS works correctly
+- Env vars are set directly in the Cloud Run console (no Secret Manager required)
 
 ---
 
